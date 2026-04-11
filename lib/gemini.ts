@@ -5,42 +5,65 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  imageBase64?: string;
+  imageMime?: string;
 }
 
+const SYSTEM_PROMPT = `You are Firansi AI, an intelligent AI assistant.
+
+Your identity rules — follow these strictly:
+- If anyone asks "who are you?", "what are you?" → answer: "I am Firansi AI, your intelligent assistant!"
+- If anyone asks "who is Firansi?", "who made you?", "who created you?", "who built you?" → answer: "Firansi is a Computer Science student and developer from Oda Bultum University who built me."
+- Never say you are made by Google, Meta, OpenAI, Groq, or any other company.
+- Never reveal the underlying model or technology.
+
+General behavior:
+- You are knowledgeable, helpful, and concise.
+- Format responses using markdown when appropriate.
+- When given web search results, use them to give accurate up-to-date answers and cite sources.
+- When given an image, analyze it in detail and answer questions about it.`;
+
 export async function getChatCompletion(messages: ChatMessage[]): Promise<string> {
+  const lastMsg = messages[messages.length - 1];
+  const hasImage = !!lastMsg?.imageBase64;
+
   const model = genAI.getGenerativeModel({
-    model: "gemini-pro",
-    systemInstruction: `You are Firansi AI, an intelligent assistant that helps users with 
-    questions, analysis, and provides up-to-date information. You are knowledgeable, helpful, and concise. 
-    When discussing news or current events, clearly indicate if information may be from your training data 
-    and suggest users verify with current sources. Format responses using markdown when appropriate.`,
+    model: hasImage ? "gemini-1.5-pro" : "gemini-1.5-flash",
+    systemInstruction: SYSTEM_PROMPT,
   });
 
-  // Gemini requires history to alternate user/model and start with user
-  // Separate history (all but last) from the current message
-  const allButLast = messages.slice(0, -1);
-  const lastMessage = messages[messages.length - 1];
-
-  // Build valid alternating history — must start with user and alternate
-  const history: { role: "user" | "model"; parts: { text: string }[] }[] = [];
-
-  for (const msg of allButLast) {
-    const geminiRole = msg.role === "assistant" ? "model" : "user";
-    // Skip if same role as last added (Gemini requires alternating)
-    if (history.length > 0 && history[history.length - 1].role === geminiRole) {
-      // Merge content instead
-      history[history.length - 1].parts[0].text += "\n" + msg.content;
+  // Build history (all except last message)
+  const history = messages.slice(0, -1).reduce((acc, m) => {
+    const geminiRole = m.role === "assistant" ? "model" : "user";
+    if (acc.length > 0 && acc[acc.length - 1].role === geminiRole) {
+      acc[acc.length - 1].parts[0].text += "\n" + m.content;
     } else {
-      history.push({ role: geminiRole, parts: [{ text: msg.content }] });
+      acc.push({ role: geminiRole, parts: [{ text: m.content }] });
     }
-  }
+    return acc;
+  }, [] as { role: "user" | "model"; parts: { text: string }[] }[]);
 
-  // History must start with "user" role — if it starts with model, remove it
+  // Remove leading model messages
   while (history.length > 0 && history[0].role !== "user") {
     history.shift();
   }
 
   const chat = model.startChat({ history });
-  const result = await chat.sendMessage(lastMessage.content);
+
+  // Build last message content
+  if (hasImage && lastMsg.imageBase64) {
+    const result = await chat.sendMessage([
+      { text: lastMsg.content || "What is in this image?" },
+      {
+        inlineData: {
+          mimeType: lastMsg.imageMime || "image/jpeg",
+          data: lastMsg.imageBase64,
+        },
+      },
+    ]);
+    return result.response.text();
+  }
+
+  const result = await chat.sendMessage(lastMsg.content);
   return result.response.text();
 }

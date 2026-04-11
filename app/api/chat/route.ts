@@ -19,44 +19,30 @@ export async function POST(req: NextRequest) {
 
     let enrichedMessages: ChatMessage[] = [...messages];
 
-    // Handle PDF — extract text and inject into message
     if (imageBase64 && imageMime === "application/pdf") {
       const pdfText = await extractTextFromPDF(imageBase64);
-      enrichedMessages = messages.map((m, i) => {
-        if (i === messages.length - 1 && m.role === "user") {
-          return {
-            ...m,
-            content: `${m.content || "Please analyze this PDF document."}\n\n---\n**PDF Document Content:**\n${pdfText}`,
-            imageBase64: undefined,
-            imageMime: undefined,
-          };
-        }
-        return m;
-      });
-    }
-    // Handle image
-    else if (imageBase64) {
-      enrichedMessages = messages.map((m, i) => {
-        if (i === messages.length - 1 && m.role === "user") {
-          return { ...m, imageBase64, imageMime };
-        }
-        return m;
-      });
-    }
-    // Handle web search for text-only messages
-    else if (needsWebSearch(latestMessage)) {
-      const searchResults = await webSearch(latestMessage);
-      const searchContext = formatSearchContext(searchResults, latestMessage);
-      enrichedMessages = messages.map((m, i) => {
-        if (i === messages.length - 1 && m.role === "user") {
-          return { ...m, content: m.content + searchContext };
-        }
-        return m;
-      });
+      enrichedMessages = messages.map((m, i) =>
+        i === messages.length - 1 && m.role === "user"
+          ? { ...m, content: `${m.content || "Analyze this PDF."}\n\n---\n**PDF Content:**\n${pdfText}`, imageBase64: undefined, imageMime: undefined }
+          : m
+      );
+    } else if (imageBase64) {
+      enrichedMessages = messages.map((m, i) =>
+        i === messages.length - 1 && m.role === "user"
+          ? { ...m, imageBase64, imageMime }
+          : m
+      );
+    } else if (needsWebSearch(latestMessage)) {
+      const results = await webSearch(latestMessage);
+      const context = formatSearchContext(results, latestMessage);
+      enrichedMessages = messages.map((m, i) =>
+        i === messages.length - 1 && m.role === "user"
+          ? { ...m, content: m.content + context }
+          : m
+      );
     }
 
     const aiResponse = await getChatCompletion(enrichedMessages);
-
     return NextResponse.json({ response: aiResponse });
   } catch (error: any) {
     console.error("Chat API error:", error);
