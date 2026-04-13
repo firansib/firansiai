@@ -1,125 +1,35 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* ── Smooth scrolling ── */
-* {
-  scroll-behavior: smooth;
-}
+html, body { height: 100%; }
 
-/* ── Custom scrollbar ── */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #2d2d3d;
-  border-radius: 99px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #4c4c6d;
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f3f3f; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
 
-/* ── Base ── */
-html, body {
-  background: #0a0a0f;
-  color: white;
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* Markdown styles */
+.prose-dark p { margin-bottom: 0.6rem; color: #e5e5e5; }
+.prose-dark p:last-child { margin-bottom: 0; }
+.prose-dark h1,.prose-dark h2,.prose-dark h3 { color: #fff; font-weight: 700; margin: 0.8rem 0 0.4rem; }
+.prose-dark h1 { font-size: 1.25rem; }
+.prose-dark h2 { font-size: 1.1rem; }
+.prose-dark h3 { font-size: 1rem; }
+.prose-dark ul,.prose-dark ol { padding-left: 1.4rem; margin: 0.4rem 0; color: #e5e5e5; }
+.prose-dark li { margin-bottom: 0.2rem; }
+.prose-dark code { background: #2a2a2a; color: #a78bfa; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-family: monospace; }
+.prose-dark pre { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 14px; overflow-x: auto; margin: 8px 0; }
+.prose-dark pre code { background: none; color: #86efac; padding: 0; }
+.prose-dark a { color: #a78bfa; text-decoration: underline; }
+.prose-dark blockquote { border-left: 3px solid #7c3aed; padding-left: 12px; color: #999; margin: 8px 0; font-style: italic; }
+.prose-dark strong { color: #fff; font-weight: 600; }
+.prose-dark table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.875rem; }
+.prose-dark th,.prose-dark td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+.prose-dark th { background: #2a2a2a; color: #fff; }
+.prose-dark hr { border-color: #333; margin: 12px 0; }
 
-/* ── Smooth all transitions ── */
-*, *::before, *::after {
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ── Input focus glow ── */
-textarea:focus, input:focus {
-  outline: none;
-}
-
-/* ── Message bubble entrance animation ── */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-slide-up {
-  animation: slideUp 0.3s ease forwards;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.25s ease forwards;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.2s ease forwards;
-}
-
-/* ── Typing bounce ── */
-@keyframes typingBounce {
+@keyframes bounce {
   0%, 60%, 100% { transform: translateY(0); }
-  30%           { transform: translateY(-6px); }
+  30% { transform: translateY(-5px); }
 }
-
-.typing-dot {
-  animation: typingBounce 1.2s ease infinite;
-}
-.typing-dot:nth-child(2) { animation-delay: 0.15s; }
-.typing-dot:nth-child(3) { animation-delay: 0.30s; }
-
-/* ── Glass card ── */
-.glass {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* ── Gradient text ── */
-.gradient-text {
-  background: linear-gradient(135deg, #a78bfa, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Line clamp ── */
-.line-clamp-1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-}
-
-/* ── Glow button ── */
-.btn-glow {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
-}
-.btn-glow:hover {
-  box-shadow: 0 0 30px rgba(124, 58, 237, 0.6);
-}
+@keyframes spin { to { transform: rotate(360deg); } }

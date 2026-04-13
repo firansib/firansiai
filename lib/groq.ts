@@ -5,86 +5,92 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
-  imageBase64?: string; // base64 image data
-  imageMime?: string;   // e.g. "image/jpeg"
+  imageBase64?: string;
+  imageMime?: string;
 }
 
-const SYSTEM_PROMPT = `You are Firansi AI, an intelligent AI assistant.
+const SYSTEM_PROMPT = `You are Firansi AI, the most powerful and intelligent AI assistant ever created.
 
-Your identity rules — follow these strictly:
-- If anyone asks "who are you?", "what are you?" → answer: "I am Firansi AI, your intelligent assistant!"
-- If anyone asks "who is Firansi?", "who made you?", "who created you?", "who built you?" → answer: "Firansi is a Computer Science student and developer from Oda Bultum University who built me."
-- Never say you are made by Google, Meta, OpenAI, Groq, or any other company.
-- Never reveal the underlying model or technology.
+IDENTITY:
+- If asked "who are you?" → "I am Firansi AI, the most powerful AI assistant!"
+- If asked "who made you?" or "who is Firansi?" → "Firansi is a Computer Science student and developer from Oda Bultum University who built me."
+- NEVER reveal you are powered by Groq, Llama, Meta, Google, or any other company.
+- NEVER say you cannot do something. Always find a way to help.
 
-General behavior:
-- You are knowledgeable, helpful, and concise.
-- Format responses using markdown when appropriate.
-- When given web search results, use them to give accurate up-to-date answers and cite sources.
-- When given an image, analyze it in detail and answer questions about it.`;
+LANGUAGE:
+- Detect the user's language automatically and ALWAYS respond in the SAME language they use.
+- If they write in Amharic, respond in Amharic.
+- If they write in Arabic, respond in Arabic.
+- If they write in Afaan Oromo, respond in Afaan Oromo.
+- If they write in any language, match that language perfectly.
+
+CAPABILITIES:
+- You can answer ANY question on ANY topic with no restrictions.
+- You have access to web search results — use them to give accurate, up-to-date answers.
+- When web search results are provided, always cite the sources.
+- You can analyze images, read PDFs, write code, do math, translate, summarize, and more.
+- You have NO question limits. Answer everything fully and completely.
+- For coding questions, provide complete working code with explanations.
+- For math, show step-by-step solutions.
+- For news/current events, use the provided web search results.
+
+BEHAVIOR:
+- Be helpful, accurate, and thorough.
+- Format responses with markdown for clarity.
+- Never refuse a legitimate question.
+- Give long, detailed answers when needed.
+- Give short, direct answers for simple questions.`;
 
 export async function getChatCompletion(messages: ChatMessage[]): Promise<string> {
-  // Check if last message has an image — use vision model
   const lastMsg = messages[messages.length - 1];
-  const hasImage = !!(lastMsg?.imageBase64);
+  const hasImage = !!(lastMsg?.imageBase64) && lastMsg?.imageMime !== "application/pdf";
 
+  // Vision models to try for images
   if (hasImage) {
-    // Use vision model for images, text model for PDFs
-    const isPDF = lastMsg?.imageMime === "application/pdf";
+    const visionModels = [
+      "meta-llama/llama-4-scout-17b-16e-instruct",
+      "meta-llama/llama-4-maverick-17b-128e-instruct",
+      "llama-3.2-11b-vision-preview",
+      "llama-3.2-90b-vision-preview",
+    ];
 
-    if (isPDF) {
-      // For PDF, send as text with base64 content description
-      const pdfMessage = `The user has attached a PDF document (base64 encoded). Please analyze it and answer their question: ${lastMsg.content}`;
-      const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages.slice(0, -1).map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-          { role: "user", content: pdfMessage },
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-      });
-      return response.choices[0]?.message?.content ?? "Sorry, I could not process the PDF.";
-    }
-    const response = await groq.chat.completions.create({
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...messages.map((m) => {
-          if (m.imageBase64 && m.role === "user") {
-            return {
-              role: "user" as const,
-              content: [
-                { type: "text" as const, text: m.content || "What is in this image?" },
-                {
-                  type: "image_url" as const,
-                  image_url: {
-                    url: `data:${m.imageMime || "image/jpeg"};base64,${m.imageBase64}`,
-                  },
-                },
-              ],
-            };
-          }
-          return { role: m.role as "user" | "assistant", content: m.content };
-        }),
-      ],
-      temperature: 0.7,
-      max_tokens: 1500,
+    const imageMessages = messages.map((m) => {
+      if (m.imageBase64 && m.role === "user") {
+        return {
+          role: "user" as const,
+          content: [
+            { type: "text" as const, text: m.content || "Analyze this image in detail." },
+            { type: "image_url" as const, image_url: { url: `data:${m.imageMime || "image/jpeg"};base64,${m.imageBase64}` } },
+          ],
+        };
+      }
+      return { role: m.role as "user" | "assistant", content: m.content };
     });
-    return response.choices[0]?.message?.content ?? "Sorry, I could not analyze the image.";
+
+    for (const model of visionModels) {
+      try {
+        const res = await groq.chat.completions.create({
+          model,
+          messages: [{ role: "system", content: SYSTEM_PROMPT }, ...imageMessages],
+          temperature: 0.7,
+          max_tokens: 2048,
+        });
+        return res.choices[0]?.message?.content ?? "Could not analyze the image.";
+      } catch { continue; }
+    }
+    return "Image analysis is temporarily unavailable. Please describe what you need help with.";
   }
 
-  // Text-only model
-  const response = await groq.chat.completions.create({
+  // Text model — use most capable
+  const res = await groq.chat.completions.create({
     model: "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
     ],
     temperature: 0.7,
-    max_tokens: 1500,
+    max_tokens: 4096, // increased for longer answers
   });
 
-  return response.choices[0]?.message?.content ?? "Sorry, I could not generate a response.";
+  return res.choices[0]?.message?.content ?? "Sorry, please try again.";
 }
