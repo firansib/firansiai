@@ -1,27 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getChatCompletion } from "@/lib/groq";
 
+/**
+ * POST /api/pdf
+ * Accepts: { topic, content? }
+ * Returns: { content, topic }
+ *
+ * - Generates structured document content via AI
+ * - Frontend uses jsPDF to render and download
+ */
 export async function POST(req: NextRequest) {
   try {
     const { topic, content } = await req.json();
-    if (!topic) return NextResponse.json({ error: "Topic is required" }, { status: 400 });
 
-    let pdfContent = content;
-
-    // If no content provided, generate it with AI
-    if (!pdfContent) {
-      pdfContent = await getChatCompletion([
-        {
-          role: "user",
-          content: `Write a detailed, well-structured document about: "${topic}". 
-          Include: Introduction, main sections with headings, key points, and conclusion.
-          Format with clear sections using markdown headings (##).`,
-        },
-      ]);
+    if (!topic && !content) {
+      return NextResponse.json({ error: "topic or content is required" }, { status: 400 });
     }
 
-    return NextResponse.json({ content: pdfContent, topic });
+    let documentContent = content;
+
+    // ── Generate content if not provided ─────────────────────────
+    if (!documentContent) {
+      documentContent = await getChatCompletion([{
+        role: "user",
+        content: `Write a detailed, well-structured document about: "${topic}"
+
+Format requirements:
+- Start with a clear title
+- Include an introduction
+- Use clear section headings (##)
+- Include key points and explanations
+- End with a conclusion
+- Use plain text, no markdown symbols in the final output
+
+Write the full document now:`,
+      }]);
+    }
+
+    return NextResponse.json({
+      content: documentContent,
+      topic: topic || "Document",
+    });
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message ?? "PDF generation failed" }, { status: 500 });
+    console.error("[/api/pdf] Error:", error?.message);
+    return NextResponse.json({ error: "PDF generation failed. Please try again." }, { status: 500 });
   }
 }

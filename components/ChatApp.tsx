@@ -37,6 +37,8 @@ export default function ChatApp() {
   const [showAttach, setShowAttach] = useState(false);
   const [search, setSearch] = useState("");
   const [image, setImage] = useState<{ base64: string; mime: string; preview: string; fileName?: string } | null>(null);
+  // Store last image for memory — so follow-up questions about same image work
+  const [lastImageData, setLastImageData] = useState<{ base64: string; mime: string } | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -59,7 +61,7 @@ export default function ChatApp() {
     try { const c = await getChatById(id); setMessages(c?.messages ?? []); } catch { setMessages([]); }
   };
 
-  const newChat = () => { setActiveChatId(null); setMessages([]); setError(""); setView("chat"); setImage(null); };
+  const newChat = () => { setActiveChatId(null); setMessages([]); setError(""); setView("chat"); setImage(null); setLastImageData(null); };
 
   const removeChat = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -152,7 +154,13 @@ export default function ChatApp() {
     };
     const updated = [...messages, userMsg];
     setMessages(updated); setLoading(true);
-    const imgData = image ? { imageBase64: image.base64, imageMime: image.mime } : {};
+
+    // Use current image OR last image (memory for follow-up questions)
+    const currentImg = image || (lastImageData ? { ...lastImageData, preview: "", fileName: undefined } : null);
+    const imgData = currentImg ? { imageBase64: currentImg.base64, imageMime: currentImg.mime } : {};
+
+    // Save image for memory if new image attached
+    if (image) setLastImageData({ base64: image.base64, mime: image.mime });
     setImage(null);
 
     let cid = activeChatId;

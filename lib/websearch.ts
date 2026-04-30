@@ -97,16 +97,27 @@ async function fetchDuckDuckGo(query: string): Promise<SearchResult[]> {
 export function formatSearchContext(results: SearchResult[], query: string): string {
   if (!results.length) return "";
   const lines = results
-    .map((r, i) => `[${i + 1}] **${r.title}** (${r.source})\n${r.snippet}\nSource: ${r.url}`)
-    .join("\n\n");
-  return `\n\n---\n**🔍 Real-time Web Search Results for: "${query}"**\n\n${lines}\n\n---\nUse the above search results to give an accurate, up-to-date answer. Always cite sources with [1], [2], etc.`;
+    .map((r) => `- ${r.title}: ${r.snippet}`)
+    .join("\n");
+  return `\n\n[Background context from web search - use this to improve your answer but do NOT list these links or mention sources unless the user specifically asks for sources]:\n${lines}`;
 }
 
-// Search for almost everything except very simple greetings
+// Only search for factual/knowledge questions, not conversational ones
 export function needsWebSearch(message: string): boolean {
   const lower = message.toLowerCase().trim();
-  if (lower.length < 4) return false;
-  const skip = ["hi", "hello", "hey", "thanks", "ok", "bye", "yes", "no", "who are you", "what are you"];
-  if (skip.includes(lower)) return false;
+  if (lower.length < 6) return false;
+
+  // Skip conversational messages
+  const skip = [
+    "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "bye",
+    "yes", "no", "sure", "great", "good", "nice", "cool", "awesome",
+    "who are you", "what are you", "how are you", "what can you do",
+  ];
+  if (skip.some((s) => lower === s || lower.startsWith(s + " "))) return false;
+
+  // Skip if it's a simple task (write, create, explain, calculate)
+  const taskWords = ["write", "create", "make", "generate", "calculate", "translate", "summarize", "explain", "code", "fix", "help me"];
+  if (taskWords.some((w) => lower.startsWith(w))) return false;
+
   return true;
 }
